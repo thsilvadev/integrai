@@ -55,8 +55,22 @@ def check_user(data):
                 send_message(phone_number, 'Formato inválido de dados. Tente novamente.')
                 return JsonResponse({'status': 'error', 'message': 'Formato inválido de dados. Tente novamente.'})
 
+        elif user.waiting_data == "waiting_for_edit":
+            valid_data = is_valid_name_and_email(message)
+            if valid_data:
+                edit_user(user, valid_data)
+                return JsonResponse({'status': 'success', 'message': 'Usuário editado com sucesso.'})
+            else:
+                send_message(phone_number, 'Formato inválido. Operação cancelada.')
+                user.waiting_data = None
+                user.save()
+                return JsonResponse({'status': 'error', 'message': 'Formato inválido.'})
+
+        elif user.waiting_data == "waiting_for_delete_confirmation":
+            delete_user(user, message)
+
         # Se o usuário está registrado e não está esperando dados, retorne as informações
-        if user.waiting_data is None:
+        elif user.waiting_data is None:
             print("Chamando o menu...")
             menu(user, message)
             return JsonResponse({'registered': True, 'name': user.name, 'email': user.email})
@@ -73,23 +87,38 @@ def check_user(data):
         return JsonResponse({'registered': False, 'status': 'waiting_for_name_and_email'})
 
 
-def delete_user(data):
-    phone_number = data.get('phone_number')
-    try:
-        user = User.objects.get(phone_number=phone_number)
+def delete_user(user, message):
+    if message.strip().upper() == "SIM":
         user.delete()
-        return JsonResponse({'message': 'User deleted successfully'})
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
-
-
-def edit_user(data):
-    phone_number = data.get('phone_number')
-    try:
-        user = User.objects.get(phone_number=phone_number)
-        user.name = data.get('name', user.name)
-        user.email = data.get('email', user.email)
+        send_message(user.phone_number, 'Usuário deletado com sucesso.')
+        return JsonResponse({'status': 'success', 'message': 'Usuário deletado.'})
+    else:
+        send_message(user.phone_number, 'Operação cancelada.')
+        user.waiting_data = None
         user.save()
-        return JsonResponse({'message': 'User updated successfully'})
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+        return JsonResponse({'status': 'canceled', 'message': 'Operação cancelada.'})
+
+
+def edit_user(user, valid_data):
+    """
+    Atualiza ou adiciona um novo usuário com base nos dados validados.
+
+    :param user: O objeto User já verificado
+    :param valid_data: Dados válidos contendo [nome, email]
+    """
+    try:
+        # Desempacotando os dados validados
+        name, email = valid_data
+
+        # Atualizar ou salvar o usuário com os novos dados
+        user.name = name
+        user.email = email
+        user.waiting_data = None  # Definindo waiting_data como None, pois agora o usuário foi registrado
+
+        # Salvar as mudanças no banco de dados
+        user.save()
+        send_message(user.phone_number, "Usuário editado com sucesso!")
+        menu(user, "")
+        return JsonResponse({'message': 'User edited successfully', 'user_id': user.id})
+    except Exception as e:
+        return JsonResponse({'error': 'An unexpected error occurred.', 'details': str(e)}, status=500)
