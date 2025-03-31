@@ -11,12 +11,30 @@ def evolution_webhook(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            sender_number = data.sender.split('@')[0]
+            print(data)  # Verifique o que está sendo recebido exatamente
 
-            check_user(sender_number)
+            if data.get('event') == 'messages.upsert':
+                # Verificar se a mensagem foi enviada pelo próprio número (fromMe: True)
+                is_from_me = data.get('data', {}).get('key', {}).get('fromMe')
 
-            # Aqui você pode fazer o que precisar com os dados recebidos.
-            # Por exemplo, salvar no banco de dados ou processar de alguma forma.
+                # Se a mensagem foi enviada pelo próprio número, ignore
+                if is_from_me:
+                    print(f"Ignorando mensagem enviada por mim mesmo.")
+                    return JsonResponse({"status": "ignored", "message": "Mensagem enviada por seu número, ignorando."})
+
+                # Pegando o remoteJid de forma segura
+                remote_jid = data.get('data', {}).get('key', {}).get('remoteJid', '')
+
+                if not remote_jid:
+                    return JsonResponse({"status": "error", "message": "remoteJid não encontrado."}, status=400)
+
+                # Agora vamos extrair o número antes do '@'
+                sender_number = remote_jid.split('@')[0]
+                message = data['data']['message']['conversation']
+                check_user([sender_number, message])
+
+                # Aqui você pode fazer o que precisar com os dados recebidos.
+                # Por exemplo, salvar no banco de dados ou processar de alguma forma.
 
             return JsonResponse({"status": "success", "message": "Webhook recebido com sucesso."})
         except json.JSONDecodeError:
