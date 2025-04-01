@@ -6,31 +6,6 @@ from django.http import JsonResponse
 from .utils import is_valid_name_and_email
 
 
-def add_user(user, valid_data):
-    """
-    Atualiza ou adiciona um novo usuário com base nos dados validados.
-
-    :param user: O objeto User já verificado
-    :param valid_data: Dados válidos contendo [nome, email]
-    """
-    try:
-        # Desempacotando os dados validados
-        name, email = valid_data
-
-        # Atualizar ou salvar o usuário com os novos dados
-        user.name = name
-        user.email = email
-        user.waiting_data = None  # Definindo waiting_data como None, pois agora o usuário foi registrado
-
-        # Salvar as mudanças no banco de dados
-        user.save()
-        send_message(user.phone_number, "Usuário registrado com sucesso!")
-        menu(user, "")
-        return JsonResponse({'message': 'User added successfully', 'user_id': user.id})
-
-    except Exception as e:
-        return JsonResponse({'error': 'An unexpected error occurred.', 'details': str(e)}, status=500)
-
 def check_user(data):
     phone_number = data[0]
     message = data[1]
@@ -49,7 +24,7 @@ def check_user(data):
 
             if valid_data:
                 # Se os dados forem válidos, adicione o usuário
-                add_user(user, valid_data)
+                user.add_user(valid_data)
                 return JsonResponse({'status': 'success', 'message': 'Usuário atualizado com sucesso.'})
             else:
                 send_message(phone_number, 'Formato inválido de dados. Tente novamente.')
@@ -58,7 +33,7 @@ def check_user(data):
         elif user.waiting_data == "waiting_for_edit":
             valid_data = is_valid_name_and_email(message)
             if valid_data:
-                edit_user(user, valid_data)
+                user.edit_user(valid_data)
                 return JsonResponse({'status': 'success', 'message': 'Usuário editado com sucesso.'})
             else:
                 send_message(phone_number, 'Formato inválido. Operação cancelada.')
@@ -67,7 +42,7 @@ def check_user(data):
                 return JsonResponse({'status': 'error', 'message': 'Formato inválido.'})
 
         elif user.waiting_data == "waiting_for_delete_confirmation":
-            delete_user(user, message)
+            user.delete_user(message)
 
         # Se o usuário está registrado e não está esperando dados, retorne as informações
         elif user.waiting_data is None:
@@ -85,40 +60,3 @@ def check_user(data):
 
         send_message(phone_number,"Ainda não te cadastramos. Por favor, envie seu nome e email, separados por uma vírgula.\n\nExemplo: Thiago, thsilva.developer@gmail.com")
         return JsonResponse({'registered': False, 'status': 'waiting_for_name_and_email'})
-
-
-def delete_user(user, message):
-    if message.strip().upper() == "SIM":
-        user.delete()
-        send_message(user.phone_number, 'Usuário deletado com sucesso.')
-        return JsonResponse({'status': 'success', 'message': 'Usuário deletado.'})
-    else:
-        send_message(user.phone_number, 'Operação cancelada.')
-        user.waiting_data = None
-        user.save()
-        return JsonResponse({'status': 'canceled', 'message': 'Operação cancelada.'})
-
-
-def edit_user(user, valid_data):
-    """
-    Atualiza ou adiciona um novo usuário com base nos dados validados.
-
-    :param user: O objeto User já verificado
-    :param valid_data: Dados válidos contendo [nome, email]
-    """
-    try:
-        # Desempacotando os dados validados
-        name, email = valid_data
-
-        # Atualizar ou salvar o usuário com os novos dados
-        user.name = name
-        user.email = email
-        user.waiting_data = None  # Definindo waiting_data como None, pois agora o usuário foi registrado
-
-        # Salvar as mudanças no banco de dados
-        user.save()
-        send_message(user.phone_number, "Usuário editado com sucesso!")
-        menu(user, "")
-        return JsonResponse({'message': 'User edited successfully', 'user_id': user.id})
-    except Exception as e:
-        return JsonResponse({'error': 'An unexpected error occurred.', 'details': str(e)}, status=500)
