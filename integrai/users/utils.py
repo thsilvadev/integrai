@@ -2,13 +2,7 @@ import re
 
 
 def is_valid_name_and_email(message):
-    """
-    Valida se a mensagem tem o formato correto de nome e email separados por uma vírgula.
-    A validação verifica se o nome e o email estão presentes e se o email tem uma estrutura básica válida.
 
-    :param message: A mensagem contendo o nome e o email separados por uma vírgula
-    :return: True se a mensagem for válida, False caso contrário
-    """
     # Remover espaços antes e depois da string
     message = message.strip()
 
@@ -45,3 +39,19 @@ def is_valid_email(email):
     # Expressão regular simples para verificar se o email contém @ e .
     email_regex = r"[^@]+@[^@]+\.[^@]+"
     return bool(re.match(email_regex, email))
+
+
+def ranking():
+    from .models import User
+    # Obtém todos os usuários ordenados pelo quiz_score em ordem decrescente
+    users = User.objects.all().order_by('-quiz_score')[:10]  # Pega os 10 melhores usuários
+
+    # Formata o ranking como uma string
+    ranking_string = "🏆 *Ranking dos Melhores Jogadores*\n\n"
+
+    for posicao, user in enumerate(users, start=1):
+        ranking_string += f"{posicao} - {user.name} - {user.quiz_score}\n\n"
+
+    return ranking_string
+
+
